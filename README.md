@@ -1,4 +1,9 @@
 
+> *WARNING:*
+> Running WITH_CREATE_LUN might destroy data
+
+Only run against a fresh Fedora 39 VM.
+
 Run:
 
     $ WITH_CREATE_LUN=true bash test.sh
