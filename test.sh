@@ -2,48 +2,72 @@
 
 set -xe
 
-dnf install -y nfs-utils targetcli
+MNT_SERVER=/mnt/pnfs-lun
+MNT_CLIENT=/var/tmp/pnfs-client
 
-#
-# LUN
-#
-targetcli <<EOF
-cd /backstores/fileio/
-create /var/tmp/pnfs-lun.img pnfs-lun 4G
+if ${WITH_CREATE_LUN:-false}
+then
+  echo dnf install -y nfs-utils targetcli sg3_utils
 
-cd /loopback/
-create naa.1234567890123456
-cd naa.1234567890123456/luns
-create /backstores/fileio/pnfs-lun
-exit
+  #
+  # LUN
+  #
+  targetcli <<EOF
+  cd /backstores/fileio/
+  create pnfs-lun /var/tmp/pnfs-lun.img 4G
+
+  cd /loopback/
+  create naa.1234567890123456
+  cd naa.1234567890123456/luns
+  create /backstores/fileio/pnfs-lun
+  exit
 EOF
 
-# Filter for LIO and 4567 which is part of the taregtcli.script def
-DEV=$(lsblk --json -p -o NAME,WWN,VENDOR | jq -r '.blockdevices[] | select (.vendor | test(".*LIO.*")) | select(.wwn | test(".*4567.*")) | .name')
+  # Filter for LIO and 4567 which is part of the taregtcli.script def
+  DEV=$(lsblk --scsi --json -p -o NAME,WWN,VENDOR | jq -r '.blockdevices[] | select (.vendor | test(".*LIO-ORG.*")) | .name')
 
-mkdir /mnt/pnfs-lun
-mkfs.xfs $DEV
-mount $DEV /mnt/pnfs-lun
-chmod a+rw /mnt/pnfs-lun
-
+  mkfs.xfs -f $DEV
+  mkdir $MNT_SERVER || :
+  mount $DEV $MNT_SERVER
+  chmod a+rw $MNT_SERVER
+fi
 
 #
 # NFS Server
 #
-alias nset="nfsconf --set nfsd"
+nset() { nfsconf --set nfsd $@ ; }
 nset debug 1
 nset vers3 n
 nset vers4 y
+nset vers 4.1 y
 nset vers 4.2 y
 nset rdma n
 
 systemctl restart nfs-server
 
-echo "/mnt/pnfs-lun *(rw,insecure)" > /etc/exports
-exportfs -rav
+st() { nfsstat -l | grep -E "layout|write" | sort; }
+st
 
 #
 # NFS Client
 #
-mkdir /var/tmp/pnfs-mnt
-mount -t nfs -o nfsvers=4.2 127.0.0.1:/mnt/pnfs-lun /var/tmp/pnfs-mnt
+mkdir $MNT_CLIENT || :
+umount $MNT_CLIENT || :
+
+for NFS_FLAGS in "rw,insecure" "pnfs,rw,insecure";
+do
+  echo -e "\n#\n#\n$NFS_FLAGS\n#\n#\n"
+
+  echo "$MNT_SERVER *($NFS_FLAGS)" > /etc/exports
+  exportfs -rav
+
+  mount -t nfs -o nfsvers=4.2 127.0.0.1:/$MNT_SERVER $MNT_CLIENT
+
+  dd if=/dev/zero of=$MNT_CLIENT/data bs=1G count=1
+  rm -v $MNT_CLIENT/data
+  st
+
+  umount $MNT_CLIENT
+done
+
+:> /etc/exports
