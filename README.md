@@ -51,3 +51,7 @@ Run:
     nfs v4 servop        write:    24975 
     …
     $
+
+Monitor
+
+    watch --differences         "nfsstat --server | egrep --after-context=1 read\|write\|layout"
