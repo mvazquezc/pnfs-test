@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: client
+spec:
+  storageClassName: pnfs
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4.2
+  nfs:
+    server: "10.131.0.31"
+    path: "/mnt/pnfs-lun" # "nfs-direct" folder must exist inside "/exports" directory of NFS server
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pnfs-lun-client
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: Block
+  volumeName: pnfs-lun
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: client
+spec:
+  storageClassName: pnfs
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+  volumeName: client
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: client
+spec:
+  containers:
+  - name: shell
+    image: quay.io/fdeutsch/pnfs:latest
+    command:
+    - sleep
+    - "3600"
+    volumeMounts:
+    - name: client
+      mountPath: /mnt/client
+  volumes:
+  - name: client
+    persistentVolumeClaim:
+      claimName: client
+

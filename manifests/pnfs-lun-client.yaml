@@ -1,0 +1,9 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pnfs-lun-client
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: Block
+  volumeName: pnfs-lun
