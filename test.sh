@@ -77,18 +77,18 @@ do
 $MNT_SERVER_REFER *(refer=${MNT_SERVER}@127.0.0.1)
 $MNT_SERVER *($NFS_FLAGS)
 EOF
-  K=$( [[ "$NFS_FLAGS" =~ .*pnfs.* ]] && echo pnfs || echo nfs )
+  K=$( [[ "$NFS_FLAGS" =~ .*pnfs.* ]] && echo pnfs || echo no-pnfs )
   exportfs -rav
 
   mount -t nfs -o nfsvers=4.2,actimeo=600 127.0.0.1:/$MNT_SERVER_REFER $MNT_CLIENT
 
-  results[$K]=$(dd if=/dev/zero of=$MNT_CLIENT/data bs=1G count=3 2>&1)
+  results[$K]=$(dd if=/dev/zero of=$MNT_CLIENT/data bs=1G count=3 2>&1 ; sync)
 
   if ${INTERRUPT_NFS:-false} && [[ "$NFS_FLAGS" =~ .*pnfs.* ]]
   then
     # FIXME better with iptables rules
     { sleep 1 ; ip link set eth0 down ; sleep 5 ; ip link set eth0 up ; } &
-    results[${K}X]=$(dd if=/dev/zero of=$MNT_CLIENT/data bs=1G count=3 2>&1)
+    results[${K}X]=$(dd if=/dev/zero of=$MNT_CLIENT/data bs=1G count=3 2>&1 ; sync)
     #systemctl stop nfs-server
     #systemctl start nfs-server
     

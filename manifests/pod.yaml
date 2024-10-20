@@ -14,7 +14,8 @@ spec:
   mountOptions:
     - nfsvers=4.2
   nfs:
-    server: "10.131.0.31"
+#    server: "172.31.48.199"
+    server: "mds.pnfs.svc"
     path: "/mnt/pnfs-lun" # "nfs-direct" folder must exist inside "/exports" directory of NFS server
 ---
 kind: PersistentVolumeClaim
@@ -26,6 +27,9 @@ spec:
     - ReadWriteMany
   volumeMode: Block
   volumeName: pnfs-lun
+  resources:
+    requests:
+      storage: 30Gi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -53,11 +57,11 @@ spec:
     command:
     - sleep
     - "3600"
-    volumeMounts:
-    - name: client
-      mountPath: /mnt/client
-  volumes:
-  - name: client
-    persistentVolumeClaim:
-      claimName: client
+#    volumeMounts:
+#    - name: client
+#      mountPath: /mnt/client
+#  volumes:
+#  - name: client
+#    persistentVolumeClaim:
+#      claimName: client
 
