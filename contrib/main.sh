@@ -60,18 +60,29 @@ EOF
   # in poc we did then also run_mds()
 }
 
+#fsid=0 required (https://www.linuxquestions.org/questions/linux-networking-3/nfs-mount-no-such-file-or-directory-4175531974/)
+
 run_mds() {
-  NFS_FLAGS="pnfs,rw,insecure"
+  NFS_FLAGS="pnfs,rw,insecure,fsid=0"
 
 #  mkfs.xfs $LUN_SERVER
 #  mkdir -p $MNT_SERVER
 #  mount $LUN_SERVER $MNT_SERVER
+  mkdir -p $MNT_SERVER
+  mount $LUN_SERVER $MNT_SERVER
   chmod a+rw $MNT_SERVER
 
   tee /etc/exports.d/pnfs-mds.exports <<EOF
 $MNT_SERVER *($NFS_FLAGS)
 EOF
   exportfs -rav
+
+/usr/sbin/rpcbind
+/usr/sbin/rpc.mountd
+/usr/sbin/rpc.idmapd
+/usr/sbin/rpc.statd
+/usr/sbin/rpc.nfsd
+
 }
 
 main() {

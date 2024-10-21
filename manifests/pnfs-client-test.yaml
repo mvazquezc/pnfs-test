@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: client
+  namespace: pnfs
+spec:
+  storageClassName: pnfs
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4.2
+  nfs:
+    server: "10.135.0.112" #podIP
+#    server: "mds.pnfs.svc.cluster.local"
+    path: "/" 
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: client
+  namespace: pnfs
+spec:
+  storageClassName: pnfs
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  volumeMode: Filesystem
+  volumeName: client
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: pnfs-client
+  name: pnfs-client
+  namespace: pnfs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pnfs-client
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pnfs-client
+    spec:
+      volumes:
+      - name: shared-volume
+        persistentVolumeClaim:
+          claimName: client
+      containers:
+      - image: quay.io/mavazque/trbsht:latest
+        name: trbsht
+        resources: {}
+        volumeMounts:
+          - name: shared-volume
+            mountPath: "/mnt"

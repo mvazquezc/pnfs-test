@@ -1,3 +1,44 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pnfs
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pnfs
+  namespace: pnfs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  creationTimestamp: null
+  name: system:openshift:scc:privileged
+  namespace: pnfs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+- kind: ServiceAccount
+  name: pnfs
+  namespace: pnfs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pnfs-server-storage
+  namespace: pnfs
+spec:
+  volumeMode: Block
+  volumeName: pv-iscsi
+  storageClassName: software-iscsi
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 300Gi
+---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
@@ -21,13 +62,12 @@ spec:
           app: pnfs-mds
     spec:
       serviceAccountName: pnfs
-      hostPID: true
-      hostUsers: true
+      hostPID: false
       terminationGracePeriodSeconds: 60
       containers:
         - name: mds
           image: >-
-            quay.io/fdeutsch/pnfs:latest
+            quay.io/mavazque/pnfs:latest
           imagePullPolicy: Always
           ports:
           - name: nfs
@@ -45,13 +85,13 @@ spec:
               memory: 1G
           securityContext:
             privileged: true
-          volumeMounts:
+          volumeDevices:
           - name: lun
-            mountPath: "/mnt/pnfs-lun"
+            devicePath: "/dev/pnfs-lun"
       volumes:
       - name: lun
         persistentVolumeClaim:
-          claimName: pnfs-lun
+          claimName: pnfs-server-storage
       priorityClassName: system-node-critical
   updateStrategy:
     type: RollingUpdate
@@ -68,7 +108,7 @@ metadata:
 spec:
   selector:
     app: mds
-#  clusterIP: None
+  clusterIP: None
   ports:
   - name: nfs
     port: 2049

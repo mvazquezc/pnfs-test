@@ -1,0 +1,65 @@
+## Deploy CSI driver:
+## git clone https://github.com/kubernetes-csi/csi-driver-nfs.git && cd $_
+## ./deploy/install-driver.sh v4.9.0 local
+##
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-csi
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: 10.135.0.112
+#  server: mds.pnfs.svc.cluster.local
+  share: /
+  # csi.storage.k8s.io/provisioner-secret is only needed for providing mountOptions in DeleteVolume
+  # csi.storage.k8s.io/provisioner-secret-name: "mount-options"
+  # csi.storage.k8s.io/provisioner-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-nfs-dynamic
+  namespace: pnfs
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: nfs-csi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: pnfs-client
+  name: pnfs-client
+  namespace: pnfs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pnfs-client
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pnfs-client
+    spec:
+      volumes:
+      - name: shared-volume
+        persistentVolumeClaim:
+          claimName: pvc-nfs-dynamic
+      containers:
+      - image: quay.io/mavazque/trbsht:latest
+        name: trbsht
+        resources: {}
+        volumeMounts:
+          - name: shared-volume
+            mountPath: "/mnt"

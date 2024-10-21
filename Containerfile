@@ -1,4 +1,4 @@
-FROM fedora:latest
+FROM fedora:40
 
 RUN dnf install -y nfs-utils targetcli sg3_utils
 
