@@ -71,17 +71,19 @@ run_mds() {
   mkdir -p $MNT_SERVER
   mount $LUN_SERVER $MNT_SERVER
   chmod a+rw $MNT_SERVER
-
+  # share must be owned by libvirt uid:gid (107), otherwise: preparing host-disks failed: chown /proc/3402156/root/var/run/kubevirt-private/vmi-disks/rootdisk/disk.img: operation not permitted
+  chown -R 107:107 $MNT_SERVER
   tee /etc/exports.d/pnfs-mds.exports <<EOF
 $MNT_SERVER *($NFS_FLAGS)
 EOF
   exportfs -rav
 
-/usr/sbin/rpcbind
-/usr/sbin/rpc.mountd
-/usr/sbin/rpc.idmapd
-/usr/sbin/rpc.statd
-/usr/sbin/rpc.nfsd
+  /usr/sbin/rpcbind &
+  /usr/sbin/rpc.mountd &
+  /usr/sbin/rpc.idmapd &
+  /usr/sbin/rpc.statd &
+  /usr/sbin/rpc.nfsd &
+  /usr/sbin/blkmapd &
 
 }
 
